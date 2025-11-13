@@ -1,12 +1,12 @@
-# input = """3   4
-# 4   3
-# 2   5
-# 1   3
-# 3   9
-# 3   3"""
+input = """3   4
+4   3
+2   5
+1   3
+3   9
+3   3"""
 
-with open("input.txt", 'r', encoding='utf8') as file:
-    input = file.read()
+# with open("input.txt", 'r', encoding='utf8') as file:
+#     input = file.read()
 
 liste1 = []
 liste2 = []

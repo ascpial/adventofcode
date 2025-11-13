@@ -1,4 +1,5 @@
 input.txt
+input*.txt
 input_check.txt
 .env
 cookie.txt
