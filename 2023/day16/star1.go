@@ -2,113 +2,18 @@ package main
 
 import (
 	"fmt"
-	"strings"
 )
 
-type Direction int
-type CellType int
-
-const (
-	Left Direction = iota
-	Right
-	Down
-	Up
-	Empty     CellType = iota
-	Mirror1            // /
-	Mirror2            // \
-	SplitterH          // -
-	SplitterV          // |
-)
-
-type Cell struct {
-	Type      CellType
-	Energized bool
-	Seen      map[Direction]bool
-}
-
-var Mirror1Dirs = map[Direction]Direction{
-	Left:  Down,
-	Right: Up,
-	Down:  Left,
-	Up:    Right,
-}
-var Mirror2Dirs = map[Direction]Direction{
-	Left:  Up,
-	Right: Down,
-	Down:  Right,
-	Up:    Left,
-}
-
-func (c *Cell) GoThrough(incoming Direction) []Direction {
-	if !c.Seen[incoming] {
-		c.Energized = true
-		c.Seen[incoming] = true
-		switch c.Type {
-		case Empty:
-			return []Direction{incoming}
-		case Mirror1:
-			return []Direction{Mirror1Dirs[incoming]}
-		case Mirror2:
-			return []Direction{Mirror2Dirs[incoming]}
-		case SplitterH:
-			switch incoming {
-			case Left, Right:
-				return []Direction{incoming}
-			case Up, Down:
-				return []Direction{Left, Right}
-			}
-		case SplitterV:
-			switch incoming {
-			case Up, Down:
-				return []Direction{incoming}
-			case Left, Right:
-				return []Direction{Up, Down}
-			}
-		default:
-			panic(fmt.Sprintf("Unrecognized type: %d", c.Type))
+func Count(entrypoint Traverse) int {
+	for _, row := range contraption {
+		for _, cell := range row {
+			cell.Energized = false
+			cell.Seen = make(map[Direction]bool, 4)
 		}
 	}
-	return []Direction{}
-}
-
-func MakeCell(t CellType) *Cell {
-	return &Cell{
-		t,
-		false,
-		make(map[Direction]bool),
-	}
-}
-
-type Traverse struct {
-	X int
-	Y int
-	D Direction
-}
-
-func Star1() {
-	rows := strings.Split(strings.TrimSpace(puzzle), "\n")
-	height := len(rows)
-	width := len(rows[0])
-	contraption := make([][]*Cell, height)
-	for y, line := range rows {
-		for x := range width {
-			switch line[x] {
-			case '.':
-				contraption[y] = append(contraption[y], MakeCell(Empty))
-			case '/':
-				contraption[y] = append(contraption[y], MakeCell(Mirror1))
-			case '\\':
-				contraption[y] = append(contraption[y], MakeCell(Mirror2))
-			case '-':
-				contraption[y] = append(contraption[y], MakeCell(SplitterH))
-			case '|':
-				contraption[y] = append(contraption[y], MakeCell(SplitterV))
-			default:
-				panic(fmt.Sprintf("Unrecognized character: %b", line[x]))
-			}
-		}
-	}
-	queue := []Traverse{{0, 0, Right}}
+	height := len(contraption)
+	width := len(contraption[0])
+	queue := []Traverse{entrypoint}
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
@@ -145,5 +50,9 @@ func Star1() {
 		}
 		// fmt.Print("\n")
 	}
-	fmt.Printf("%d\n", counter)
+	return counter
+}
+
+func Star1() {
+	fmt.Printf("%d\n", Count(Traverse{0, 0, Right}))
 }
