@@ -46,6 +46,14 @@ func parseRun(rawRun string) Run {
 	return run
 }
 
+func (r Run) min(o Run) Run {
+	return Run{
+		max(r.red, o.red),
+		max(r.green, o.green),
+		max(r.blue, o.blue),
+	}
+}
+
 type Game struct {
 	ID   int
 	runs []Run
@@ -78,6 +86,22 @@ func parseGame(s string) Game {
 	}
 }
 
+func (g Game) power() uint {
+	minRun := Run{0, 0, 0}
+	for _, run := range g.runs {
+		minRun = run.min(minRun)
+	}
+	return minRun.red * minRun.green * minRun.blue
+}
+
+func max(a uint, b uint) uint {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
 func main() {
 	puzzle := strings.Trim(input, "\n")
 
@@ -88,11 +112,19 @@ func main() {
 
 	compare := Run{12, 13, 14}
 
+	//STAR1
 	compatibles := 0
 	for _, game := range games {
 		if game.compatible(compare) {
 			compatibles += game.ID
 		}
 	}
-	fmt.Printf("Compatible games: %d\n", compatibles)
+	fmt.Printf("%d\n", compatibles)
+
+	// STAR2
+	var powers uint = 0
+	for _, game := range games {
+		powers += game.power()
+	}
+	fmt.Printf("%d\n", powers)
 }
