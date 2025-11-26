@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -27,7 +28,6 @@ func abs(n int) uint {
 
 func main() {
 	puzzle := strings.Trim(input, "\n")
-	// puzzle := example
 
 	lefts := []int{}
 	rights := []int{}
@@ -40,18 +40,32 @@ func main() {
 		rights = append(rights, int(right))
 	}
 
+	slices.SortFunc(lefts, func(a int, b int) int { return b - a })
+	slices.SortFunc(rights, func(a int, b int) int { return b - a })
+
+	// STAR 1
+
+	var similarity uint = 0
+	for i := 0; i < len(lefts); i++ {
+		similarity += abs(lefts[i] - rights[i])
+	}
+
+	fmt.Printf("%d\n", similarity)
+
+	// STAR2
+
 	occurences := make(map[int]int)
 	for _, e := range rights {
 		i, _ := occurences[e]
 		occurences[e] = i + 1
 	}
 
-	var similarity uint = 0
+	var similarity2 uint = 0
 	for i := 0; i < len(lefts); i++ {
 		left := lefts[i]
 		count, _ := occurences[left]
-		similarity += uint(left * count)
+		similarity2 += uint(left * count)
 	}
 
-	fmt.Printf("Similarity: %d\n", similarity)
+	fmt.Printf("%d\n", similarity2)
 }
