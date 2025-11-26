@@ -119,7 +119,6 @@ func main() {
 			compatibles += game.ID
 		}
 	}
-	fmt.Printf("%d\n", compatibles)
 
 	// STAR2
 	var powers uint = 0
@@ -127,4 +126,5 @@ func main() {
 		powers += game.power()
 	}
 	fmt.Printf("%d\n", powers)
+	fmt.Printf("%d\n", compatibles)
 }

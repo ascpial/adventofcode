@@ -202,6 +202,6 @@ func main() {
 			}
 		}
 	}
-	Star1()
 	Star2()
+	Star1()
 }

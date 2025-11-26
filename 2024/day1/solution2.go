@@ -50,8 +50,6 @@ func main() {
 		similarity += abs(lefts[i] - rights[i])
 	}
 
-	fmt.Printf("%d\n", similarity)
-
 	// STAR2
 
 	occurences := make(map[int]int)
@@ -68,4 +66,5 @@ func main() {
 	}
 
 	fmt.Printf("%d\n", similarity2)
+	fmt.Printf("%d\n", similarity)
 }
