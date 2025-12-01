@@ -32,7 +32,7 @@ func main() {
 			panic(err)
 		}
 		pos = (pos + delta) % 100
-		fmt.Printf("Pos: %d\n", pos)
+		// fmt.Printf("Pos: %d\n", pos)
 		if pos == 0 {
 			counter += 1
 		}
