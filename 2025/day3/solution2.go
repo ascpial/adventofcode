@@ -26,9 +26,7 @@ func (p *Puzzle) get(x, y int) int {
 
 func createPuzzle(data []byte) *Puzzle {
 	width := bytes.IndexByte(data, '\n')
-	// fmt.Printf("buffer size: %d\n", len(data))
 	height := (len(data) + 1) / (width + 1)
-	// fmt.Printf("size: %d %d\n", width, height)
 	return &Puzzle{
 		data,
 		width,
@@ -36,7 +34,7 @@ func createPuzzle(data []byte) *Puzzle {
 	}
 }
 
-func rowSum(puzzle *Puzzle, y int, result chan int) {
+func rowSum(puzzle *Puzzle, y int) int {
 	total := 0
 	minIndex := 0
 	for i := range 12 {
@@ -50,23 +48,14 @@ func rowSum(puzzle *Puzzle, y int, result chan int) {
 		}
 		total = total*10 + maxValue
 	}
-	result <- total
+	return total
 }
 
 func main() {
 	puzzle := createPuzzle(input)
-	result := make(chan int, puzzle.Height)
-	for y := range puzzle.Height {
-		go rowSum(puzzle, y, result)
-	}
 	sum := 0
-	counter := 0
-	for val := range result {
-		counter++
-		sum += val
-		if counter == puzzle.Height {
-			close(result)
-		}
+	for y := range puzzle.Height {
+		sum += rowSum(puzzle, y)
 	}
 	fmt.Printf("%d\n", sum)
 }
