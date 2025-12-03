@@ -42,21 +42,18 @@ func Star1(puzzle *Puzzle) int {
 		firstValue := 0
 		firstIndex := 0
 		for x := 0; x < puzzle.Width-1; x++ {
-			// fmt.Printf("%d\n", x)
 			if puzzle.get(x, y) > firstValue {
 				firstValue = puzzle.get(x, y)
 				firstIndex = x
 			}
 		}
 		secondValue := 0
-		// secondIndex := firstIndex
 		for x := firstIndex + 1; x < puzzle.Width; x++ {
 			if puzzle.get(x, y) > secondValue {
 				secondValue = puzzle.get(x, y)
 				// secondIndex = x
 			}
 		}
-		// fmt.Printf("Line %d: %d\n", y, firstValue*10+secondValue)
 		sum += firstValue*10 + secondValue
 	}
 	return sum
