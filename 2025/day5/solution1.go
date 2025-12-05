@@ -1,10 +1,8 @@
 package main
 
 import (
-	"crypto/des"
 	_ "embed"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -29,6 +27,10 @@ type Range struct {
 	End   int
 }
 
+func (r Range) In(v int) bool {
+	return r.Start <= v && v <= r.End
+}
+
 func parseRange(rawRange string) Range {
 	ends := strings.Split(rawRange, "-")
 	if len(ends) != 2 {
@@ -45,20 +47,8 @@ func parseRange(rawRange string) Range {
 	return Range{start, end}
 }
 
-type SegtreeNode struct {
-	Start    int
-	End      int
-	Segments []Range
-	Left     *SegtreeNode
-	Right    *SegtreeNode
-}
-
-func (n *SegtreeNode) Leaf() bool {
-	return n.Left == nil && n.Right == nil
-}
-
 func main() {
-	dataAreas := strings.Split(strings.TrimSpace(example), "\n\n")
+	dataAreas := strings.Split(strings.TrimSpace(input), "\n\n")
 	if len(dataAreas) != 2 {
 		panic("Data input unreadable")
 	}
@@ -70,27 +60,20 @@ func main() {
 		ranges[i] = parseRange(rawRange)
 	}
 
-	pointsMap := map[int]struct{}{}
-	for _, range_ := range ranges {
-		pointsMap[range_.Start] = struct{}{}
-		pointsMap[range_.End] = struct{}{}
-	}
-	points := make([]int, len(pointsMap))
-	i := 0
-	for point := range pointsMap {
-		points[i] = point
-		i++
-	}
-	slices.Sort(points)
-
-	ingredients := make([]int, len(rawIngredients))
-	for i, rawIngredient := range rawIngredients {
+	counter := 0
+	for _, rawIngredient := range rawIngredients {
 		ingredient, err := strconv.Atoi(rawIngredient)
 		if err != nil {
 			panic(err)
 		}
-		ingredients[i] = ingredient
+		found := false
+		for i := 0; i < len(ranges) && !found; i++ {
+			found = ranges[i].In(ingredient)
+		}
+		if found {
+			counter++
+		}
 	}
 
-	fmt.Printf("%v\n", ranges)
+	fmt.Printf("%v\n", counter)
 }
