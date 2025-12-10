@@ -80,7 +80,7 @@ func OptionalySet(world map[Point]int8, pos Point, v int8) {
 }
 
 func main() {
-	rawPoints := strings.Split(strings.TrimSpace(example), "\n")
+	rawPoints := strings.Split(strings.TrimSpace(input), "\n")
 	points := []Point{}
 	for _, rawPoint := range rawPoints {
 		points = append(points, parsePoint(rawPoint))
