@@ -6,7 +6,7 @@ with open("cookie.txt", 'r') as file:
 with open("leaderboard.txt", 'r') as file:
     leaderboard = file.read().strip()
 
-data = requests.get(f"https://adventofcode.com/2024/leaderboard/private/view/{leaderboard}.json", cookies={"session": cookie}).json()
+data = requests.get(f"https://adventofcode.com/2025/leaderboard/private/view/{leaderboard}.json", cookies={"session": cookie}).json()
 
 day = input("Quel jour afficher ? ")
 
