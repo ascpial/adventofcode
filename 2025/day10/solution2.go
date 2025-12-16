@@ -11,6 +11,8 @@ var example = `[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
 [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
 [.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
 `
+var example2 = `[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
+`
 
 //go:embed input.txt
 var input string
@@ -81,7 +83,7 @@ type ExploreState struct {
 	buttons int
 }
 
-func computeConfigurations(machine Machine, target int) PressState {
+func computeConfigurations(machine Machine, target int, minPresses int) PressState {
 	states, found := blinkTargets[Target{machine.id, target}]
 	if found {
 		return states
@@ -93,16 +95,17 @@ func computeConfigurations(machine Machine, target int) PressState {
 	seens := map[int]struct{}{}
 	foundFirst := false
 	foundLast := false
-	targetPresses := 0
+	targetPresses := 666
 	configs := []int{}
 	for len(queue) > 0 && !foundLast {
 		current := queue[0]
+		// fmt.Printf("\n%s", strconv.FormatInt(int64(current.buttons), 2))
 		queue = queue[1:]
 		for buttonID, button := range machine.Buttons {
 			if current.buttons>>buttonID&1 == 0 {
 				next := current.current ^ button
 				nextButtons := current.buttons | (1 << buttonID)
-				if next == target {
+				if next == target && current.presses+1 > minPresses {
 					if !foundFirst {
 						targetPresses = current.presses + 1
 						configs = append(configs, nextButtons)
@@ -124,6 +127,9 @@ func computeConfigurations(machine Machine, target int) PressState {
 			}
 		}
 	}
+	// if len(configs) == 0 {
+	// 	panic("unable to find config!!!!")
+	// }
 	blinkTargets[Target{machine.id, target}] = PressState{targetPresses, configs}
 	return blinkTargets[Target{machine.id, target}]
 }
@@ -147,39 +153,48 @@ func computeMinPresses(machine Machine, target []int) int {
 		return 0
 	}
 	moduloTarget := computeModulo(target)
-	state := computeConfigurations(machine, moduloTarget)
-	// fmt.Printf(" target: %v; modulo: %s; presses: %d\n", target, strconv.FormatInt(int64(moduloTarget), 2), state.presses)
+	fmt.Printf(" target: %v; modulo: %s\n", target, strconv.FormatInt(int64(moduloTarget), 2))
 	minPresses := int(^uint(0) >> 1)
-	for _, configuration := range state.configurations {
-		curTarget := make([]int, len(target))
-		copy(curTarget, target)
-		invalid := false
-		for buttonID := 0; buttonID < len(machine.Buttons) && !invalid; buttonID++ {
-			button := machine.Buttons[buttonID]
-			if configuration>>buttonID&1 == 1 {
-				for i := range len(curTarget) {
-					if button>>i&1 == 1 {
-						curTarget[i]--
-						if curTarget[i] < 0 {
-							invalid = true
+	minModuloPresses := -1
+	for minPresses >= 1<<32-1 && minModuloPresses < 10 {
+		state := computeConfigurations(machine, moduloTarget, minModuloPresses)
+		minModuloPresses++
+		fmt.Printf("; presses: %d\n", state.presses)
+		for _, configuration := range state.configurations {
+			curTarget := make([]int, len(target))
+			copy(curTarget, target)
+			invalid := false
+			for buttonID := 0; buttonID < len(machine.Buttons) && !invalid; buttonID++ {
+				button := machine.Buttons[buttonID]
+				if configuration>>buttonID&1 == 1 {
+					for i := range len(curTarget) {
+						if button>>i&1 == 1 {
+							curTarget[i]--
+							if curTarget[i] < 0 {
+								invalid = true
+							}
 						}
 					}
 				}
 			}
-		}
-		if !invalid {
-			// fmt.Printf("  config: %s; state: %v\n", strconv.FormatInt(int64(configuration), 2), curTarget)
-			for i := range len(curTarget) {
-				if curTarget[i]%2 != 0 {
-					panic("cannot be divided by two, paniiiiiiiiiiiic!")
+			if !invalid {
+				fmt.Printf("  config: %s; state: %v\n", strconv.FormatInt(int64(configuration), 2), curTarget)
+				for i := range len(curTarget) {
+					if curTarget[i]%2 != 0 {
+						panic("cannot be divided by two, paniiiiiiiiiiiic!")
+					}
+					curTarget[i] = curTarget[i] / 2
 				}
-				curTarget[i] = curTarget[i] / 2
-			}
-			// fmt.Printf("  (after division: %v)\n", curTarget)
-			curPresses := computeMinPresses(machine, curTarget)*2 + state.presses
-			if curPresses < minPresses {
-				// fmt.Printf("  found better candidate: %d; target: %v\n", curPresses, target)
-				minPresses = curPresses
+				fmt.Printf("  (after division: %v)\n", curTarget)
+				nextPresses := computeMinPresses(machine, curTarget)
+				if nextPresses < 1<<32-1 {
+					fmt.Printf("%d\n", nextPresses)
+					curPresses := nextPresses*2 + state.presses
+					if curPresses < minPresses {
+						fmt.Printf("  found better candidate: %d; target: %v; config: %s; presses: %d, curPresses: %d\n", curPresses, target, strconv.FormatInt(int64(configuration), 2), state.presses, curPresses)
+						minPresses = curPresses
+					}
+				}
 			}
 		}
 	}
@@ -188,7 +203,7 @@ func computeMinPresses(machine Machine, target []int) int {
 
 func main() {
 	machines := []Machine{}
-	for i, rawMachine := range strings.Split(strings.TrimSpace(input), "\n") {
+	for i, rawMachine := range strings.Split(strings.TrimSpace(input2), "\n") {
 		machines = append(machines, ParseMachine(i, rawMachine))
 	}
 
