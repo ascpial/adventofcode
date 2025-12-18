@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	// "os"
 	"slices"
 	"strconv"
 	"strings"
@@ -86,11 +87,9 @@ func raymarching(verticalSegments []Segment, p Point) bool {
 	inside := false
 	x := verticalSegments[0].p1.X
 	i := 0
-	for i < len(verticalSegments) && x <= p.X {
+	for i < len(verticalSegments) && x < p.X {
 		segment := verticalSegments[i]
-		y1 := min(segment.p1.Y, segment.p2.Y)
-		y2 := max(segment.p1.Y, segment.p2.Y)
-		if y1 <= p.Y && p.Y <= y2 {
+		if segment.p1.Y <= p.Y && p.Y <= segment.p2.Y {
 			inside = !inside
 		}
 		x = verticalSegments[i+1].p1.X
@@ -105,6 +104,56 @@ func main() {
 	for _, rawPoint := range rawPoints {
 		points = append(points, parsePoint(rawPoint))
 	}
+
+	// 	template := `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+	// <!-- Created with Inkscape (http://www.inkscape.org/) -->
+	//
+	// <svg
+	//    viewBox="0 0 %d %d"
+	//    version="1.1"
+	//    id="svg1"
+	//    xmlns="http://www.w3.org/2000/svg"
+	//    xmlns:svg="http://www.w3.org/2000/svg">
+	//   <defs
+	//      id="defs1" />
+	//   <g
+	//      id="layer1">
+	//     <path
+	//        style="fill:none;stroke:#000000;stroke-width:100;stroke-opacity:1"
+	//        d="M %s Z"
+	//        id="path2" />
+	// 		<circle
+	//        style="fill:#fd0303;fill-opacity:1;stroke:none;stroke-width:100;stroke-opacity:1"
+	//        id="path3"
+	//        cx="%d"
+	//        cy="%d"
+	//        r="300" />
+	//     <circle
+	//        style="fill:#fd0303;fill-opacity:1;stroke:none;stroke-width:1.09934;stroke-opacity:1"
+	//        id="path3-3"
+	//        cx="%d"
+	//        cy="%d"
+	//        r="300" />
+	//   </g>
+	// </svg>`
+	//
+	// 	coords := []string{}
+	// 	maxX := 0
+	// 	maxY := 0
+	// 	for _, point := range points {
+	// 		coords = append(coords, fmt.Sprintf("%d,%d", point.X, point.Y))
+	// 		if point.X > maxX {
+	// 			maxX = point.X
+	// 		}
+	// 		if point.Y > maxY {
+	// 			maxY = point.Y
+	// 		}
+	// 	}
+	// 	f, err := os.Create("debug.svg")
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	defer f.Close()
 
 	segments := []Segment{}
 	previous := points[len(points)-1]
@@ -128,33 +177,34 @@ func main() {
 	slices.SortFunc(verticalSegments, func(a, b Segment) int { return a.p1.X - b.p1.X })
 
 	maxArea := 0
+	// var maxPoints Segment
 	for i := 0; i < len(points); i++ {
 		for j := i + 1; j < len(points); j++ {
 			pa := points[i]
 			pb := points[j]
 			if pa.Area(pb) > maxArea {
-				x1 := min(pa.X, pb.Y)
+				x1 := min(pa.X, pb.X)
 				x2 := max(pa.X, pb.X)
 				y1 := min(pa.Y, pb.Y)
 				y2 := max(pa.Y, pb.Y)
 
 				// find if the rectangle can be in the inner area
-				inside := raymarching(verticalSegments, Point{x1 + 1, y1 + 1})
+				inside := raymarching(verticalSegments, Point{(x1 + x2) / 2, (y1 + y2) / 2})
 
 				if inside { // this rectangle is canditate
 					stillCanditate := true
-					for c := 0; c < len(segments) && stillCanditate; c++ {
-						segment := segments[c]
-						if !(x2 <= segment.p1.X || segment.p2.X <= x1 || y2 <= segment.p1.Y || segment.p2.Y <= y1) {
-							stillCanditate = false
-						}
+					for k := 0; k < len(segments) && stillCanditate; k++ {
+						segment := segments[k]
+						stillCanditate = x2 <= segment.p1.X || segment.p2.X <= x1 || y2 <= segment.p1.Y || segment.p2.Y <= y1
 					}
 					if stillCanditate {
 						maxArea = pa.Area(pb)
+						// maxPoints = Segment{pa, pb}
 					}
 				}
 			}
 		}
 	}
 	fmt.Printf("%d\n", maxArea)
+	// fmt.Fprintf(f, template, maxX, maxY, strings.Join(coords, " "), maxPoints.p1.X, maxPoints.p1.Y, maxPoints.p2.X, maxPoints.p2.Y)
 }
