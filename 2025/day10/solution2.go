@@ -3,6 +3,9 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"os"
+	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -11,46 +14,32 @@ var example = `[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
 [...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
 [.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
 `
-var example2 = `[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
-`
 
 //go:embed input.txt
 var input string
 
-//go:embed input2.txt
-var input2 string
-
 type Machine struct {
-	id       int
-	Target   int
-	Buttons  []int
+	Buttons  [][]int
 	Joltages []int
 }
 
-func ParseMachine(id int, rawMachine string) Machine {
+func ParseMachine(rawMachine string) Machine {
 	parts := strings.Split(rawMachine, " ")
 	rawTarget := parts[0]
 	rawTarget = strings.TrimSuffix(strings.TrimPrefix(rawTarget, "["), "]")
-	target := 0
-	for i := len(rawTarget) - 1; i >= 0; i-- {
-		target <<= 1
-		if rawTarget[i] == '#' {
-			target++
-		}
-	}
 
-	buttons := []int{}
+	buttons := [][]int{}
 	for i := 1; i < len(parts)-1; i++ {
 		part := strings.TrimPrefix(strings.TrimSuffix(parts[i], ")"), "(")
-		button := 0
+		things := []int{}
 		for rawLight := range strings.SplitSeq(part, ",") {
 			light, err := strconv.Atoi(rawLight)
 			if err != nil {
 				panic(err)
 			}
-			button += 1 << light
+			things = append(things, light)
 		}
-		buttons = append(buttons, button)
+		buttons = append(buttons, things)
 	}
 
 	rawRequirements := strings.Split(strings.TrimPrefix(strings.TrimSuffix(parts[len(parts)-1], "}"), "{"), ",")
@@ -63,162 +52,78 @@ func ParseMachine(id int, rawMachine string) Machine {
 		requirements = append(requirements, requirement)
 	}
 
-	return Machine{id, target, buttons, requirements}
+	return Machine{buttons, requirements}
 }
 
-type Target struct {
-	machine int
-	target  int
-}
-type PressState struct {
-	presses        int
-	configurations []int
-}
-
-var blinkTargets = map[Target]PressState{}
-
-type ExploreState struct {
-	current int
-	presses int
-	buttons int
-}
-
-func computeConfigurations(machine Machine, target int, minPresses int) PressState {
-	states, found := blinkTargets[Target{machine.id, target}]
-	if found {
-		return states
+func InlineSum(values []int) string {
+	if len(values) == 1 {
+		return fmt.Sprintf("b%d", values[0])
+	} else {
+		return fmt.Sprintf("(+ b%d %s)", values[0], InlineSum(values[1:]))
 	}
-	if target == 0 {
-		return PressState{0, []int{0}}
+}
+
+var pattern = regexp.MustCompile(` (\d+)\)`)
+
+func Solve(machine Machine) int {
+	query := ""
+	for button := range len(machine.Buttons) {
+		query += fmt.Sprintf("(declare-const b%d Int)\n", button)
 	}
-	queue := []ExploreState{{0, 0, 0}}
-	seens := map[int]struct{}{}
-	foundFirst := false
-	foundLast := false
-	targetPresses := 666
-	configs := []int{}
-	for len(queue) > 0 && !foundLast {
-		current := queue[0]
-		// fmt.Printf("\n%s", strconv.FormatInt(int64(current.buttons), 2))
-		queue = queue[1:]
-		for buttonID, button := range machine.Buttons {
-			if current.buttons>>buttonID&1 == 0 {
-				next := current.current ^ button
-				nextButtons := current.buttons | (1 << buttonID)
-				if next == target && current.presses+1 > minPresses {
-					if !foundFirst {
-						targetPresses = current.presses + 1
-						configs = append(configs, nextButtons)
-						foundFirst = true
-					} else {
-						if current.presses+1 == targetPresses {
-							configs = append(configs, nextButtons)
-						} else {
-							foundLast = true
-						}
-					}
-				} else {
-					_, seen := seens[nextButtons]
-					if !seen {
-						queue = append(queue, ExploreState{next, current.presses + 1, nextButtons})
-						seens[nextButtons] = struct{}{}
-					}
-				}
-			}
+	allJoltages := make([][]int, len(machine.Joltages))
+	allButtons := []int{}
+	for buttonID, button := range machine.Buttons {
+		for _, joltageID := range button {
+			allJoltages[joltageID] = append(allJoltages[joltageID], buttonID)
 		}
+		query += fmt.Sprintf("(assert (>= b%d 0))\n", buttonID)
+		allButtons = append(allButtons, buttonID)
 	}
-	// if len(configs) == 0 {
-	// 	panic("unable to find config!!!!")
-	// }
-	blinkTargets[Target{machine.id, target}] = PressState{targetPresses, configs}
-	return blinkTargets[Target{machine.id, target}]
-}
-
-func computeModulo(joltages []int) int {
-	modulo := 0
-	for i, joltage := range joltages {
-		if joltage%2 == 1 {
-			modulo = modulo | 1<<i
+	for i, joltage := range machine.Joltages {
+		query += fmt.Sprintf("(assert (= %s %d))\n", InlineSum(allJoltages[i]), joltage)
+	}
+	query += fmt.Sprintf("(minimize %s)\n", InlineSum(allButtons))
+	query += "(check-sat)\n(get-model)\n"
+	// fmt.Print(query)
+	fi, err := os.Create("solution2.z3")
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := fi.Close(); err != nil {
+			panic(err)
 		}
+	}()
+	fi.Write([]byte(query))
+	cmd := exec.Command("./z3", "solution2.z3")
+	stdout, err := cmd.Output()
+	if err != nil {
+		panic(err)
 	}
-	return modulo
-}
 
-func computeMinPresses(machine Machine, target []int) int {
-	end := true
-	for i := 0; i < len(target) && end; i++ {
-		end = end && target[i] == 0
-	}
-	if end {
-		return 0
-	}
-	moduloTarget := computeModulo(target)
-	fmt.Printf(" target: %v; modulo: %s\n", target, strconv.FormatInt(int64(moduloTarget), 2))
-	minPresses := int(^uint(0) >> 1)
-	minModuloPresses := -1
-	for minPresses >= 1<<32-1 && minModuloPresses < 10 {
-		state := computeConfigurations(machine, moduloTarget, minModuloPresses)
-		minModuloPresses++
-		fmt.Printf("; presses: %d\n", state.presses)
-		for _, configuration := range state.configurations {
-			curTarget := make([]int, len(target))
-			copy(curTarget, target)
-			invalid := false
-			for buttonID := 0; buttonID < len(machine.Buttons) && !invalid; buttonID++ {
-				button := machine.Buttons[buttonID]
-				if configuration>>buttonID&1 == 1 {
-					for i := range len(curTarget) {
-						if button>>i&1 == 1 {
-							curTarget[i]--
-							if curTarget[i] < 0 {
-								invalid = true
-							}
-						}
-					}
-				}
-			}
-			if !invalid {
-				fmt.Printf("  config: %s; state: %v\n", strconv.FormatInt(int64(configuration), 2), curTarget)
-				for i := range len(curTarget) {
-					if curTarget[i]%2 != 0 {
-						panic("cannot be divided by two, paniiiiiiiiiiiic!")
-					}
-					curTarget[i] = curTarget[i] / 2
-				}
-				fmt.Printf("  (after division: %v)\n", curTarget)
-				nextPresses := computeMinPresses(machine, curTarget)
-				if nextPresses < 1<<32-1 {
-					fmt.Printf("%d\n", nextPresses)
-					curPresses := nextPresses*2 + state.presses
-					if curPresses < minPresses {
-						fmt.Printf("  found better candidate: %d; target: %v; config: %s; presses: %d, curPresses: %d\n", curPresses, target, strconv.FormatInt(int64(configuration), 2), state.presses, curPresses)
-						minPresses = curPresses
-					}
-				}
-			}
+	allValues := pattern.FindAllStringSubmatch(string(stdout), -1)
+
+	total := 0
+	for _, values := range allValues {
+		value, err := strconv.Atoi(values[1])
+		if err != nil {
+			panic(err)
 		}
+		total += value
 	}
-	return minPresses
+
+	return total
 }
 
 func main() {
 	machines := []Machine{}
-	for i, rawMachine := range strings.Split(strings.TrimSpace(input2), "\n") {
-		machines = append(machines, ParseMachine(i, rawMachine))
+	for rawMachine := range strings.SplitSeq(strings.TrimSpace(input), "\n") {
+		machines = append(machines, ParseMachine(rawMachine))
 	}
 
 	minPresses := 0
-
 	for _, machine := range machines {
-		fmt.Printf("machine %d; buttons: [", machine.id)
-		for _, button := range machine.Buttons {
-			fmt.Printf("%s ", strconv.FormatInt(int64(button), 2))
-		}
-		fmt.Print("]\n")
-		curMinPresses := computeMinPresses(machine, machine.Joltages)
-		minPresses += curMinPresses
-		fmt.Printf("machine %d; minPresses: %d\n", machine.id, curMinPresses)
+		minPresses += Solve(machine)
 	}
-
 	fmt.Printf("%d\n", minPresses)
 }
